@@ -96,8 +96,6 @@ OPENAI_API_KEY=sk-your-actual-openai-api-key-here
 OPENAI_API_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o
 
-> **Important**: Replace sk-your-actual-openai-api-key-here with your actual OpenAI API key from https://platform.openai.com/api-keys
-
 ### 4. Run the Application Locally
 
 Start the development server:
