@@ -24,8 +24,13 @@ interface PageContext {
   siteInfo?: {
     renderingEngineEndpointUrl?: string
     renderingEngineApplicationUrl?: string
+    hostname?: string
     language?: string
     name?: string
+    pointOfSale?: Array<{
+      name?: string
+      [key: string]: any
+    }>
   }
   pageInfo?: {
     id?: string
@@ -85,6 +90,7 @@ export const PageHtmlViewer = () => {
   const [report, setReport] = useState<PerformanceReport | null>(null)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
   const [showHtml, setShowHtml] = useState(false)
+  const [fetchUrl, setFetchUrl] = useState<string | null>(null)
 
   // Get page context on mount
   useEffect(() => {
@@ -353,10 +359,45 @@ ${componentsHtml}
 
       // Fetch the actual rendered HTML from the page
       const pageRoute = pageContext.pageInfo?.route || "/"
-      const renderingEngineUrl = pageContext.siteInfo?.renderingEngineApplicationUrl
       
-      if (renderingEngineUrl) {
-        console.log("Fetching HTML from rendering engine:", renderingEngineUrl + pageRoute)
+      // Get public domain from pointOfSale (where Sitecore stores the public URL)
+      // pointOfSale[0].name contains the site name, not the public domain
+      // We need to find the actual public URL in the context or use environment variable
+      const pointOfSaleInfo = pageContext.siteInfo?.pointOfSale?.[0]
+      
+      console.log("[page-html-viewer] Looking for public domain...")
+      console.log("[page-html-viewer] Full pointOfSale object:", pointOfSaleInfo)
+      console.log("[page-html-viewer] Full siteInfo:", pageContext.siteInfo)
+      
+      // Try to get public domain from various possible locations
+      const publicDomain = 
+        pointOfSaleInfo?.url ||           // Could be in 'url' property
+        pointOfSaleInfo?.domain ||        // Could be in 'domain' property  
+        pointOfSaleInfo?.hostname ||      // Could be in 'hostname' property
+        pointOfSaleInfo?.publicUrl ||     // Could be in 'publicUrl' property
+        pageContext.siteInfo?.hostname || // Could be at siteInfo level
+        process.env.NEXT_PUBLIC_SITE_URL || // Environment variable fallback
+        null
+      
+      console.log("[page-html-viewer] Public domain found:", publicDomain)
+      console.log("[page-html-viewer] Site name (pointOfSale.name):", pointOfSaleInfo?.name)
+      
+      if (publicDomain) {
+        // Ensure URL starts with http/https
+        const baseUrl = publicDomain.startsWith('http') ? publicDomain : `https://${publicDomain}`
+        const fullUrl = baseUrl + pageRoute
+        
+        // Store the URL for display in UI
+        setFetchUrl(fullUrl)
+        
+        console.log("=".repeat(80))
+        console.log("[page-html-viewer] 🌐 ATTEMPTING TO FETCH HTML")
+        console.log("=".repeat(80))
+        console.log("📍 Public Domain:", publicDomain)
+        console.log("📍 Base URL:", baseUrl)
+        console.log("📍 Page Route:", pageRoute)
+        console.log("🎯 FULL ENDPOINT:", fullUrl)
+        console.log("=".repeat(80))
         
         try {
           const htmlResponse = await fetch("/api/fetch-html", {
@@ -365,7 +406,7 @@ ${componentsHtml}
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ 
-              url: renderingEngineUrl + pageRoute 
+              url: fullUrl
             }),
           })
 
@@ -373,12 +414,22 @@ ${componentsHtml}
 
           if (htmlResponse.ok && htmlData.html) {
             setHtml(htmlData.html)
-            console.log("HTML fetched from rendering engine, length:", htmlData.html.length)
+            setError(null) // Clear any previous errors
+            console.log("HTML fetched successfully, length:", htmlData.html.length)
           } else {
-            throw new Error(htmlData.error || "Failed to fetch HTML")
+            throw new Error(htmlData.error || htmlData.details || "Failed to fetch HTML")
           }
         } catch (fetchError: any) {
-          console.warn("Could not fetch HTML from rendering engine:", fetchError)
+          console.error("[page-html-viewer] Fetch error details:", {
+            message: fetchError.message,
+            url: fullUrl,
+            error: fetchError
+          })
+          console.warn("Could not fetch HTML from public URL, using fallback...")
+          
+          // Keep the URL displayed even on error to show what was attempted
+          // setFetchUrl remains set so user can see what URL failed
+          setError(`Failed to fetch from ${fullUrl}: ${fetchError.message}`)
           
           // Fallback: Build HTML from layout data
           if (layoutResponse.data) {
@@ -387,19 +438,26 @@ ${componentsHtml}
               pageContext
             )
             setHtml(generatedHtml)
+            // Clear error if fallback succeeds
+            if (generatedHtml) {
+              setError(null)
+            }
             console.log("HTML generated from layout data (fallback), length:", generatedHtml.length)
           } else {
             throw fetchError
           }
         }
       } else {
-        // No rendering engine URL, build from layout data
+        // No public domain found, build from layout data
+        setFetchUrl(null)
+        console.log("[page-html-viewer] No public domain found in pointOfSale, using fallback HTML generation")
         if (layoutResponse.data) {
           const generatedHtml = buildHtmlFromLayout(
             layoutResponse.data,
             pageContext
           )
           setHtml(generatedHtml)
+          setError(null) // Clear any previous errors
           console.log("HTML generated from layout data, length:", generatedHtml.length)
         } else {
           throw new Error("No layout data or rendering engine URL available")
@@ -486,6 +544,85 @@ ${componentsHtml}
         </div>
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-4 p-6 pt-0">
+        {/* Fetch URL Display with Details */}
+        {fetchUrl ? (
+          <div className="space-y-3 rounded-md bg-blue-50 dark:bg-blue-950 border-2 border-blue-400 dark:border-blue-600 p-4 shadow-md">
+            <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+              🌐 Fetching HTML from Endpoint
+            </h4>
+            
+            {/* Full URL */}
+            <div className="bg-white dark:bg-gray-900 p-3 rounded border border-blue-200 dark:border-blue-700">
+              <div className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mb-1">FULL ENDPOINT:</div>
+              <code className="block text-xs break-all text-blue-700 dark:text-blue-300 font-mono font-bold">{fetchUrl}</code>
+            </div>
+
+            {/* URL Breakdown */}
+            <details className="text-xs">
+              <summary className="cursor-pointer text-blue-700 dark:text-blue-300 hover:underline font-semibold">🔍 View URL Breakdown</summary>
+              <div className="mt-3 space-y-2 bg-blue-100 dark:bg-blue-900 p-3 rounded">
+                <div className="grid grid-cols-[120px_1fr] gap-2 text-[11px]">
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">📍 Public Domain:</span>
+                  <code className="text-blue-700 dark:text-blue-300">{pageContext.siteInfo?.pointOfSale?.[0]?.url || pageContext.siteInfo?.pointOfSale?.[0]?.name || 'N/A'}</code>
+                  
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">📍 Page Route:</span>
+                  <code className="text-blue-700 dark:text-blue-300">{pageContext.pageInfo?.route || '/'}</code>
+                  
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">🔧 Source:</span>
+                  <span className="text-blue-700 dark:text-blue-300">
+                    {pageContext.siteInfo?.pointOfSale?.[0]?.url ? 'pointOfSale[0].url' :
+                     pageContext.siteInfo?.pointOfSale?.[0]?.domain ? 'pointOfSale[0].domain' :
+                     pageContext.siteInfo?.hostname ? 'siteInfo.hostname' :
+                     'NEXT_PUBLIC_SITE_URL (env variable)'}
+                  </span>
+                </div>
+              </div>
+            </details>
+
+            <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-2">
+              💡 This endpoint will be used to fetch the rendered HTML for performance analysis
+            </p>
+          </div>
+        ) : pageContext?.siteInfo && (
+          <div className="space-y-3 rounded-md bg-yellow-50 dark:bg-yellow-950 border-2 border-yellow-400 dark:border-yellow-600 p-4 shadow-md">
+            <h4 className="text-sm font-bold text-yellow-900 dark:text-yellow-100">⚠️ No Public URL Found</h4>
+            
+            <div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded">
+              <p className="text-xs text-yellow-800 dark:text-yellow-200 font-semibold mb-2">Locations checked:</p>
+              <ul className="text-[11px] text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
+                <li><code>pointOfSale[0].url</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.url || 'not found')}</li>
+                <li><code>pointOfSale[0].domain</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.domain || 'not found')}</li>
+                <li><code>pointOfSale[0].hostname</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.hostname || 'not found')}</li>
+                <li><code>pointOfSale[0].name</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.name || 'not found')}</li>
+                <li><code>siteInfo.hostname</code>: {String(pageContext.siteInfo?.hostname || 'not found')}</li>
+                <li><code>NEXT_PUBLIC_SITE_URL</code>: {String(process.env.NEXT_PUBLIC_SITE_URL || 'not set')}</li>
+              </ul>
+            </div>
+
+            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
+              🔄 Using generated HTML from layout data as fallback
+            </p>
+
+            <details className="text-xs mt-2">
+              <summary className="cursor-pointer text-yellow-600 dark:text-yellow-400 hover:underline font-semibold">🔍 View Full Context (Debug)</summary>
+              <pre className="mt-2 overflow-auto bg-yellow-100 dark:bg-yellow-900 p-2 rounded text-[10px] max-h-64">
+                {JSON.stringify({ 
+                  siteInfo: pageContext.siteInfo,
+                  pointOfSale: pageContext.siteInfo?.pointOfSale?.[0]
+                }, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div className="rounded-md bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4">
+            <h4 className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">⚠️ Error</h4>
+            <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
+          </div>
+        )}
+
         {/* Page Info Summary */}
         {pageContext?.pageInfo && (
           <div className="space-y-2 rounded-md bg-muted/50 p-4">

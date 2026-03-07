@@ -1,38 +1,85 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PerformanceReport } from "@/types/performance-report";
 
-const SYSTEM_PROMPT = `You are an expert web performance analyst. Analyze the provided HTML and return a strict JSON report only.
+/**
+ * Pre-processes HTML to extract only performance-relevant parts
+ * This reduces token usage and focuses the analysis
+ */
+function preprocessHtml(html: string): string {
+  try {
+    // Extract head section (meta tags, scripts, styles)
+    const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+    const head = headMatch ? headMatch[1] : "";
 
-Requirements:
-- This is a pre-publication audit similar in spirit to PageSpeed Insights, but based only on the provided HTML.
-- Include estimated scores (0-100 scale).
-- Include Core Web Vitals analysis for LCP, CLS, and INP.
-- Include image analysis with:
-  - hero/LCP candidate detection
-  - declaredFormatFromPath
-  - likelyServedFormat
-  - declaredDimensions
-  - loading
-  - fetchPriority
-  - role
-  - weightBytes
-  - weightStatus
-  - format recommendations
-  - recommended image byte budgets
-- Include issues with:
-  - approximate line number
-  - selector hint
-  - evidence snippet
-  - problem
-  - why it matters
-  - suggested fix
-  - concrete fix example
-- Include quick wins.
-- Include strategic recommendations.
-- Include a P1/P2/P3 roadmap.
-- If an exact value cannot be known from HTML alone, set it to null and explain briefly in the relevant field.
+    // Extract all img tags (especially above-the-fold candidates)
+    const imgMatches = html.matchAll(/<img[^>]*>/gi);
+    const images = Array.from(imgMatches).slice(0, 20).join("\n"); // Limit to first 20 images
 
-IMPORTANT: Return ONLY valid JSON, no markdown code blocks, no explanations outside the JSON.`;
+    // Extract script tags in body
+    const scriptMatches = html.matchAll(/<script[^>]*>[\s\S]*?<\/script>/gi);
+    const scripts = Array.from(scriptMatches).slice(0, 10).join("\n"); // Limit to first 10 scripts
+
+    // Extract link preload/prefetch
+    const preloadMatches = html.matchAll(/<link[^>]*(?:preload|prefetch)[^>]*>/gi);
+    const preloads = Array.from(preloadMatches).join("\n");
+
+    // Basic body structure (without full content)
+    const bodyMatch = html.match(/<body[^>]*>/i);
+    const bodyTag = bodyMatch ? bodyMatch[0] : "<body>";
+
+    const processed = `
+<!DOCTYPE html>
+<html>
+<head>
+${head}
+</head>
+${bodyTag}
+  <!-- Images (first 20) -->
+  ${images}
+  
+  <!-- Scripts (first 10) -->
+  ${scripts}
+  
+  <!-- Preloads/Prefetches -->
+  ${preloads}
+</body>
+</html>`;
+
+    console.log(`HTML preprocessed: ${html.length} bytes → ${processed.length} bytes`);
+    return processed;
+  } catch (error) {
+    console.error("Error preprocessing HTML:", error);
+    // Fallback: return first 10KB of original HTML
+    return html.substring(0, 10000) + "\n<!-- HTML truncated for analysis -->";
+  }
+}
+
+const SYSTEM_PROMPT = `You are an expert web performance analyst. Analyze the provided HTML excerpt and return a strict JSON report.
+
+Focus on these key areas:
+1. Overall Performance Score (0-100) - Based on: image optimization, resource loading strategy, HTML structure, script placement
+2. Top Priority Actions (5-7 items) - The most impactful improvements ordered by priority
+
+For each action, include:
+- The approximate line number where the issue is found (if applicable)
+- A small code snippet showing the problematic code (max 1-2 lines)
+
+Keep recommendations specific, actionable, and focused on the biggest wins.
+
+IMPORTANT: Return ONLY valid JSON matching this structure:
+{
+  "overallScore": number,
+  "topActions": [
+    { 
+      "priority": number, 
+      "title": string, 
+      "impact": string, 
+      "fix": string,
+      "lineNumber": number (optional),
+      "codeSnippet": string (optional, max 1-2 lines of code)
+    }
+  ]
+}`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,11 +103,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userPrompt = `Analyze the following HTML and return a strict JSON report only.
+    // Preprocess HTML to reduce size and focus on performance-relevant parts
+    const processedHtml = preprocessHtml(html);
 
-Now analyze this HTML:
+    const userPrompt = `Analyze the following HTML excerpt (preprocessed for performance analysis) and return a strict JSON report.
 
-${html}`;
+${processedHtml}`;
 
     const requestBody = {
       model: model,
@@ -75,7 +123,7 @@ ${html}`;
         }
       ],
       temperature: 0.2,
-      max_tokens: 8000,
+      max_tokens: 2000,
       response_format: { type: "json_object" }
     };
 

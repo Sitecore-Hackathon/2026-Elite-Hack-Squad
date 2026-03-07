@@ -11,7 +11,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Fetching HTML from URL:", url);
+    console.log("[fetch-html] Starting fetch for URL:", url);
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch (urlError) {
+      console.error("[fetch-html] Invalid URL format:", url);
+      return NextResponse.json(
+        { error: `Invalid URL format: ${url}` },
+        { status: 400 }
+      );
+    }
 
     // Fetch the HTML from the provided URL
     const response = await fetch(url, {
@@ -22,9 +33,10 @@ export async function POST(request: NextRequest) {
         "Cache-Control": "no-cache",
         "Pragma": "no-cache",
       },
-      // Don't follow redirects automatically
       redirect: "follow",
     });
+
+    console.log("[fetch-html] Response status:", response.status, response.statusText);
 
     if (!response.ok) {
       return NextResponse.json(
@@ -44,9 +56,16 @@ export async function POST(request: NextRequest) {
       statusCode: response.status,
     });
   } catch (error: any) {
-    console.error("Error fetching HTML:", error);
+    console.error("[fetch-html] Error details:", {
+      message: error.message,
+      cause: error.cause,
+      stack: error.stack,
+    });
     return NextResponse.json(
-      { error: error.message || "Error fetching HTML" },
+      { 
+        error: error.message || "Error fetching HTML",
+        details: error.cause?.message || error.toString()
+      },
       { status: 500 }
     );
   }
