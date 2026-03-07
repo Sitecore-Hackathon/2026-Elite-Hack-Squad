@@ -1,14 +1,10 @@
 "use client";
 
-import { ApplicationContext } from "@/components/examples/built-in-auth/application-context";
-import { PageContext } from "@/components/examples/built-in-auth/page-context";
 import { PageHtmlViewer } from "@/components/examples/built-in-auth/page-html-viewer";
-import { ListLanguagesFromClientSdk } from "@/components/examples/built-in-auth/with-xmc/list-languages";
-import { Separator } from "@/components/ui/separator";
 
-function Examples() {
+function PerformanceAnalyzer() {
   return (
-    <div className="container mx-auto p-6 space-y-8 max-w-3xl">
+    <div className="container mx-auto p-6 space-y-8 max-w-4xl">
       <div className="space-y-4">
         <h1 className="text-3xl font-semibold tracking-tight">
           Performance Analyzer
@@ -19,25 +15,8 @@ function Examples() {
       </div>
 
       <PageHtmlViewer />
-
-      <Separator />
-
-      <ApplicationContext />
-
-      <Separator />
-
-      <PageContext />
-
-      <Separator />
-
-      <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Built-in Auth Examples</h2>
-        <div className="grid gap-6">
-          <ListLanguagesFromClientSdk />
-        </div>
-      </div>
     </div>
   );
 }
 
-export default Examples;
+export default PerformanceAnalyzer;

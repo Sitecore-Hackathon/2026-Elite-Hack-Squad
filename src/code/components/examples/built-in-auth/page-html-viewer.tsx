@@ -1,6 +1,7 @@
 "use client";
 
 import { useMarketplaceClient } from "@/components/providers/marketplace";
+import { PerformanceReportViewer } from "@/components/performance-report-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardTitle } from "@/components/ui/card";
@@ -9,7 +10,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { PerformanceReport } from "@/types/performance-report";
+import { ChevronDown, ChevronRight, RefreshCw, Sparkles, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface PageContext {
@@ -38,6 +40,10 @@ export const PageHtmlViewer = () => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [report, setReport] = useState<PerformanceReport | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [showHtml, setShowHtml] = useState(false);
 
   // Get page context on mount
   useEffect(() => {
@@ -141,6 +147,47 @@ export const PageHtmlViewer = () => {
     }
   };
 
+  const analyzeHtml = async () => {
+    if (!html) {
+      setAnalysisError("No HTML to analyze");
+      return;
+    }
+
+    setAnalyzing(true);
+    setAnalysisError(null);
+    setReport(null);
+
+    try {
+      console.log("Sending HTML for analysis, length:", html.length);
+
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ html }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+
+      if (data.success && data.report) {
+        setReport(data.report);
+        console.log("Analysis complete, report received");
+      } else {
+        throw new Error("Invalid response from analysis API");
+      }
+    } catch (err: any) {
+      console.error("Error analyzing HTML:", err);
+      setAnalysisError(err.message || "Error analyzing HTML");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   return (
     <Collapsible
       open={isExpanded}
@@ -188,7 +235,7 @@ export const PageHtmlViewer = () => {
         )}
 
         {/* Refresh Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             onClick={fetchPageHtml}
             disabled={loading || !pageContext?.siteInfo}
@@ -199,9 +246,28 @@ export const PageHtmlViewer = () => {
             {loading ? "Fetching..." : "Refresh HTML"}
           </Button>
           {html && (
-            <span className="text-sm text-muted-foreground">
-              {html.length.toLocaleString()} characters
-            </span>
+            <>
+              <Button
+                onClick={analyzeHtml}
+                disabled={analyzing || !html}
+                size="sm"
+                variant="default"
+              >
+                <Sparkles className={`h-4 w-4 mr-2 ${analyzing ? "animate-pulse" : ""}`} />
+                {analyzing ? "Analyzing..." : "Analyze Performance"}
+              </Button>
+              <Button
+                onClick={() => setShowHtml(!showHtml)}
+                size="sm"
+                variant="ghost"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {showHtml ? "Hide HTML" : "Show HTML"}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {html.length.toLocaleString()} characters
+              </span>
+            </>
           )}
         </div>
 
@@ -212,15 +278,41 @@ export const PageHtmlViewer = () => {
           </div>
         )}
 
+        {/* Analysis Error Display */}
+        {analysisError && (
+          <div className="bg-destructive/10 text-destructive p-4 rounded-md text-sm">
+            Analysis Error: {analysisError}
+          </div>
+        )}
+
+        {/* Analyzing Indicator */}
+        {analyzing && (
+          <div className="bg-primary/10 text-primary p-4 rounded-md text-sm flex items-center gap-2">
+            <Sparkles className="h-4 w-4 animate-pulse" />
+            Analyzing HTML with AI... This may take a moment.
+          </div>
+        )}
+
+        {/* Performance Report */}
+        {report && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-lg">Performance Analysis Report</h4>
+              <Badge colorScheme="success">AI Generated</Badge>
+            </div>
+            <PerformanceReportViewer report={report} />
+          </div>
+        )}
+
         {/* HTML Display */}
-        {html ? (
+        {html && showHtml ? (
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Page HTML</h4>
             <pre className="bg-muted p-4 rounded-md text-xs overflow-auto max-h-[500px] whitespace-pre-wrap break-all">
               {html}
             </pre>
           </div>
-        ) : !error && !loading ? (
+        ) : !html && !error && !loading ? (
           <div className="text-muted-foreground text-sm">
             {pageContext
               ? "Waiting for rendering engine URL..."
