@@ -369,15 +369,9 @@ ${componentsHtml}
       console.log("[page-html-viewer] Full pointOfSale object:", pointOfSaleInfo)
       console.log("[page-html-viewer] Full siteInfo:", pageContext.siteInfo)
       
-      // Try to get public domain from various possible locations
-      const publicDomain = 
-        pointOfSaleInfo?.url ||           // Could be in 'url' property
-        pointOfSaleInfo?.domain ||        // Could be in 'domain' property  
-        pointOfSaleInfo?.hostname ||      // Could be in 'hostname' property
-        pointOfSaleInfo?.publicUrl ||     // Could be in 'publicUrl' property
-        pageContext.siteInfo?.hostname || // Could be at siteInfo level
-        process.env.NEXT_PUBLIC_SITE_URL || // Environment variable fallback
-        null
+      // Get public domain - Sitecore context doesn't contain the public Vercel URL
+      // Use environment variable as the source of truth for production URL
+      const publicDomain = process.env.NEXT_PUBLIC_SITE_URL || null
       
       console.log("[page-html-viewer] Public domain found:", publicDomain)
       console.log("[page-html-viewer] Site name (pointOfSale.name):", pointOfSaleInfo?.name)
@@ -563,19 +557,17 @@ ${componentsHtml}
               <div className="mt-3 space-y-2 bg-blue-100 dark:bg-blue-900 p-3 rounded">
                 <div className="grid grid-cols-[120px_1fr] gap-2 text-[11px]">
                   <span className="font-semibold text-blue-800 dark:text-blue-200">📍 Public Domain:</span>
-                  <code className="text-blue-700 dark:text-blue-300">{pageContext.siteInfo?.pointOfSale?.[0]?.url || pageContext.siteInfo?.pointOfSale?.[0]?.name || 'N/A'}</code>
+                  <code className="text-blue-700 dark:text-blue-300">{process.env.NEXT_PUBLIC_SITE_URL || 'N/A'}</code>
                   
                   <span className="font-semibold text-blue-800 dark:text-blue-200">📍 Page Route:</span>
                   <code className="text-blue-700 dark:text-blue-300">{pageContext.pageInfo?.route || '/'}</code>
                   
                   <span className="font-semibold text-blue-800 dark:text-blue-200">🔧 Source:</span>
-                  <span className="text-blue-700 dark:text-blue-300">
-                    {pageContext.siteInfo?.pointOfSale?.[0]?.url ? 'pointOfSale[0].url' :
-                     pageContext.siteInfo?.pointOfSale?.[0]?.domain ? 'pointOfSale[0].domain' :
-                     pageContext.siteInfo?.hostname ? 'siteInfo.hostname' :
-                     'NEXT_PUBLIC_SITE_URL (env variable)'}
-                  </span>
+                  <span className="text-blue-700 dark:text-blue-300">NEXT_PUBLIC_SITE_URL (environment variable)</span>
                 </div>
+                <p className="text-[10px] text-blue-700 dark:text-blue-300 mt-2 italic">
+                  💡 Note: Sitecore context doesn't expose public URLs. Using env variable as configured.
+                </p>
               </div>
             </details>
 
@@ -585,18 +577,19 @@ ${componentsHtml}
           </div>
         ) : pageContext?.siteInfo && (
           <div className="space-y-3 rounded-md bg-yellow-50 dark:bg-yellow-950 border-2 border-yellow-400 dark:border-yellow-600 p-4 shadow-md">
-            <h4 className="text-sm font-bold text-yellow-900 dark:text-yellow-100">⚠️ No Public URL Found</h4>
+            <h4 className="text-sm font-bold text-yellow-900 dark:text-yellow-100">⚠️ No Public URL Configured</h4>
             
             <div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded">
-              <p className="text-xs text-yellow-800 dark:text-yellow-200 font-semibold mb-2">Locations checked:</p>
-              <ul className="text-[11px] text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
-                <li><code>pointOfSale[0].url</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.url || 'not found')}</li>
-                <li><code>pointOfSale[0].domain</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.domain || 'not found')}</li>
-                <li><code>pointOfSale[0].hostname</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.hostname || 'not found')}</li>
-                <li><code>pointOfSale[0].name</code>: {String(pageContext.siteInfo?.pointOfSale?.[0]?.name || 'not found')}</li>
-                <li><code>siteInfo.hostname</code>: {String(pageContext.siteInfo?.hostname || 'not found')}</li>
-                <li><code>NEXT_PUBLIC_SITE_URL</code>: {String(process.env.NEXT_PUBLIC_SITE_URL || 'not set')}</li>
-              </ul>
+              <p className="text-xs text-yellow-800 dark:text-yellow-200 font-semibold mb-2">NEXT_PUBLIC_SITE_URL not set in environment</p>
+              <p className="text-[11px] text-yellow-700 dark:text-yellow-300">
+                Add NEXT_PUBLIC_SITE_URL to your .env file with your Vercel deployment URL:
+              </p>
+              <code className="block mt-2 text-[10px] bg-yellow-200 dark:bg-yellow-800 p-2 rounded">
+                NEXT_PUBLIC_SITE_URL=https://rb-sitecore-ehs-2026-rb-sitecore-eh.vercel.app
+              </code>
+              <p className="text-[10px] text-yellow-600 dark:text-yellow-400 mt-2 italic">
+                🔄 Restart the dev server after adding the variable
+              </p>
             </div>
 
             <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
@@ -604,13 +597,15 @@ ${componentsHtml}
             </p>
 
             <details className="text-xs mt-2">
-              <summary className="cursor-pointer text-yellow-600 dark:text-yellow-400 hover:underline font-semibold">🔍 View Full Context (Debug)</summary>
-              <pre className="mt-2 overflow-auto bg-yellow-100 dark:bg-yellow-900 p-2 rounded text-[10px] max-h-64">
-                {JSON.stringify({ 
-                  siteInfo: pageContext.siteInfo,
-                  pointOfSale: pageContext.siteInfo?.pointOfSale?.[0]
-                }, null, 2)}
-              </pre>
+              <summary className="cursor-pointer text-yellow-600 dark:text-yellow-400 hover:underline font-semibold">🔍 Why isn't the URL in Sitecore context?</summary>
+              <div className="mt-2 text-[11px] text-yellow-700 dark:text-yellow-300 space-y-1">
+                <p>Sitecore XM Cloud context only provides internal URLs:</p>
+                <ul className="list-disc list-inside ml-2 space-y-1">
+                  <li><code>renderingEngineApplicationUrl</code>: Internal XM Cloud URL (requires auth)</li>
+                  <li><code>pointOfSale[0].name</code>: Site identifier only, not a URL</li>
+                </ul>
+                <p className="mt-2">Public deployment URLs must be configured separately in your environment.</p>
+              </div>
             </details>
           </div>
         )}
