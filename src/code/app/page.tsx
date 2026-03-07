@@ -1,6 +1,7 @@
 "use client";
 
 import { ApplicationContext } from "@/components/examples/built-in-auth/application-context";
+import { PageContext } from "@/components/examples/built-in-auth/page-context";
 import { ListLanguagesFromClientSdk } from "@/components/examples/built-in-auth/with-xmc/list-languages";
 import { Separator } from "@/components/ui/separator";
 
@@ -17,6 +18,10 @@ function Examples() {
       </div>
 
       <ApplicationContext />
+
+      <Separator />
+
+      <PageContext />
 
       <Separator />
 
