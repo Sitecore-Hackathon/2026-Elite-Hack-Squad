@@ -340,16 +340,7 @@ ${componentsHtml}
     setError(null)
 
     try {
-      console.log("Fetching layout data from pages.layout...")
-
-      // Try to get layout data from SDK
-      const layoutResponse = await client.query("pages.layout")
-
-      console.log("Layout data received:", layoutResponse.data)
-
-      if (layoutResponse.data) {
-        setLayoutData(layoutResponse.data)
-      }
+      console.log("Fetching HTML from rendering engine...")
 
       // Fetch the actual rendered HTML from the page
       const pageRoute = pageContext.pageInfo?.route || "/"
@@ -379,31 +370,10 @@ ${componentsHtml}
           }
         } catch (fetchError: any) {
           console.warn("Could not fetch HTML from rendering engine:", fetchError)
-          
-          // Fallback: Build HTML from layout data
-          if (layoutResponse.data) {
-            const generatedHtml = buildHtmlFromLayout(
-              layoutResponse.data,
-              pageContext
-            )
-            setHtml(generatedHtml)
-            console.log("HTML generated from layout data (fallback), length:", generatedHtml.length)
-          } else {
-            throw fetchError
-          }
+          throw fetchError
         }
       } else {
-        // No rendering engine URL, build from layout data
-        if (layoutResponse.data) {
-          const generatedHtml = buildHtmlFromLayout(
-            layoutResponse.data,
-            pageContext
-          )
-          setHtml(generatedHtml)
-          console.log("HTML generated from layout data, length:", generatedHtml.length)
-        } else {
-          throw new Error("No layout data or rendering engine URL available")
-        }
+        throw new Error("No rendering engine URL available")
       }
     } catch (err: any) {
       console.error("Error fetching layout data:", err)
