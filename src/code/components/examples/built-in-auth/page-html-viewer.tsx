@@ -346,16 +346,7 @@ ${componentsHtml}
     setError(null)
 
     try {
-      console.log("Fetching layout data from pages.layout...")
-
-      // Try to get layout data from SDK
-      const layoutResponse = await client.query("pages.layout")
-
-      console.log("Layout data received:", layoutResponse.data)
-
-      if (layoutResponse.data) {
-        setLayoutData(layoutResponse.data)
-      }
+      console.log("Fetching HTML from rendering engine...")
 
       // Fetch the actual rendered HTML from the page
       const pageRoute = pageContext.pageInfo?.route || "/"
@@ -414,48 +405,11 @@ ${componentsHtml}
             throw new Error(htmlData.error || htmlData.details || "Failed to fetch HTML")
           }
         } catch (fetchError: any) {
-          console.error("[page-html-viewer] Fetch error details:", {
-            message: fetchError.message,
-            url: fullUrl,
-            error: fetchError
-          })
-          console.warn("Could not fetch HTML from public URL, using fallback...")
-          
-          // Keep the URL displayed even on error to show what was attempted
-          // setFetchUrl remains set so user can see what URL failed
-          setError(`Failed to fetch from ${fullUrl}: ${fetchError.message}`)
-          
-          // Fallback: Build HTML from layout data
-          if (layoutResponse.data) {
-            const generatedHtml = buildHtmlFromLayout(
-              layoutResponse.data,
-              pageContext
-            )
-            setHtml(generatedHtml)
-            // Clear error if fallback succeeds
-            if (generatedHtml) {
-              setError(null)
-            }
-            console.log("HTML generated from layout data (fallback), length:", generatedHtml.length)
-          } else {
-            throw fetchError
-          }
+          console.warn("Could not fetch HTML from rendering engine:", fetchError)
+          throw fetchError
         }
       } else {
-        // No public domain found, build from layout data
-        setFetchUrl(null)
-        console.log("[page-html-viewer] No public domain found in pointOfSale, using fallback HTML generation")
-        if (layoutResponse.data) {
-          const generatedHtml = buildHtmlFromLayout(
-            layoutResponse.data,
-            pageContext
-          )
-          setHtml(generatedHtml)
-          setError(null) // Clear any previous errors
-          console.log("HTML generated from layout data, length:", generatedHtml.length)
-        } else {
-          throw new Error("No layout data or rendering engine URL available")
-        }
+        throw new Error("No rendering engine URL available")
       }
     } catch (err: any) {
       console.error("Error fetching layout data:", err)
@@ -560,7 +514,7 @@ ${componentsHtml}
                   <code className="text-blue-700 dark:text-blue-300">{process.env.NEXT_PUBLIC_SITE_URL || 'N/A'}</code>
                   
                   <span className="font-semibold text-blue-800 dark:text-blue-200">📍 Page Route:</span>
-                  <code className="text-blue-700 dark:text-blue-300">{pageContext.pageInfo?.route || '/'}</code>
+                  <code className="text-blue-700 dark:text-blue-300">{pageContext?.pageInfo?.route || '/'}</code>
                   
                   <span className="font-semibold text-blue-800 dark:text-blue-200">🔧 Source:</span>
                   <span className="text-blue-700 dark:text-blue-300">NEXT_PUBLIC_SITE_URL (environment variable)</span>
