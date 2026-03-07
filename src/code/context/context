@@ -1,3 +1,113 @@
-Es una aplicación llamada Perfomance Analyzer para SitecoreAI Marketplace.
-Al abrirse en un panel lateral en Pages, debe obtener automaticamente el HTML de la página actual.
+# Performance Analyzer - Sitecore Hackathon 2026
 
+## Project Description
+
+**Performance Analyzer** is an application for **SitecoreAI Marketplace** developed for the Sitecore Hackathon 2026. When opened as a side panel in Pages (SitecoreAI Page Builder), it should automatically obtain the HTML of the current page to analyze its performance.
+
+## Technology Stack
+
+| Category | Technology |
+|----------|------------|
+| Framework | Next.js 16.1.6 (with Turbopack) |
+| Language | TypeScript 5.9.3 |
+| UI Library | React 19.2.4 |
+| Styling | Tailwind CSS 4.1.18 + PostCSS |
+| Components | shadcn/ui (base-nova style) |
+| UI Primitives | Radix UI |
+| Icons | Lucide React, MDI |
+| Sitecore SDK | @sitecore-marketplace-sdk/client (0.3.2), @sitecore-marketplace-sdk/xmc (0.4.1) |
+
+## Project Structure
+
+```
+src/code/
+├── app/                    # Next.js App Router
+│   ├── globals.css         # Global styles with Tailwind theme
+│   ├── layout.tsx          # Root layout with MarketplaceProvider
+│   ├── page.tsx            # Main page component
+│   └── favicon.ico
+├── components/
+│   ├── examples/           # Example implementations
+│   │   └── built-in-auth/
+│   │       ├── application-context.tsx   # Displays Sitecore app context
+│   │       └── with-xmc/
+│   │           └── list-languages.tsx    # XMC languages demo
+│   ├── providers/
+│   │   └── marketplace.tsx  # Sitecore Marketplace SDK provider
+│   ├── ui/                  # shadcn/ui components
+│   │   ├── alert.tsx
+│   │   ├── badge.tsx
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── collapsible.tsx
+│   │   ├── separator.tsx
+│   │   └── skeleton.tsx
+│   └── theme-provider.tsx   # Dark/light theme support
+├── lib/
+│   ├── utils.ts             # Tailwind class merge utility
+│   └── icon.tsx             # Icon component
+├── hooks/                   # Custom React hooks
+├── context/                 # Context documentation
+└── public/                  # Static assets
+```
+
+## Configuration Files
+
+- `package.json` - Dependencies and scripts
+- `tsconfig.json` - TypeScript configuration (strict mode)
+- `next.config.mjs` - Next.js configuration
+- `postcss.config.mjs` - PostCSS configuration
+- `eslint.config.mjs` - ESLint rules
+- `components.json` - shadcn/ui configuration
+- `.prettierrc` - Code formatting
+
+## Key Components
+
+### 1. MarketplaceProvider (`components/providers/marketplace.tsx`)
+- Main integration with Sitecore Marketplace SDK
+- Initializes ClientSDK with XMC module
+- Provides `useMarketplaceClient()` and `useAppContext()` hooks
+- Communicates with Sitecore Marketplace parent window via `window.parent`
+
+### 2. Main Page (`app/page.tsx`)
+- Entry point displaying "Marketplace SDK Demo"
+- Renders ApplicationContext and ListLanguages examples
+
+### 3. ApplicationContext (`components/examples/built-in-auth/application-context.tsx`)
+- Collapsible panel showing the Sitecore application context
+- Uses SDK built-in authentication
+
+### 4. ListLanguages (`components/examples/built-in-auth/with-xmc/list-languages.tsx`)
+- Demonstrates XMC queries for available languages
+- Uses the `client.query("xmc.sites.listLanguages")` API
+
+## Sitecore Integration
+
+The application is designed to:
+- Run as an embedded app within **Sitecore Marketplace**
+- Use **SitecoreAI Page Builder** extension points
+- Query `application.context` and `pages.context` for page/site information
+- Access XMC APIs for site management
+
+## Available Scripts
+
+```bash
+npm run dev        # Development with Turbopack
+npm run build      # Build for production
+npm run start      # Start production server
+npm run lint       # Run ESLint
+npm run format     # Format code with Prettier
+npm run typecheck  # Check TypeScript types
+```
+
+## Target Functionality
+
+The Performance Analyzer should:
+1. Open as a side panel in SitecoreAI Pages
+2. Automatically obtain the HTML of the current page
+3. Analyze content performance metrics
+4. Display results and recommendations to the user
+
+## Path Aliases
+
+- `@/*` maps to the project root directory
