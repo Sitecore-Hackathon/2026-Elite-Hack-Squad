@@ -182,30 +182,77 @@ export const PageHtmlViewer = () => {
 
       if (!fieldValue) return ""
 
-      // Handle image fields
-      if (fieldValue.value?.src || fieldValue.src) {
-        const src = fieldValue.value?.src || fieldValue.src
-        const alt = fieldValue.value?.alt || fieldValue.alt || ""
-        const width = fieldValue.value?.width || fieldValue.width || ""
-        const height = fieldValue.value?.height || fieldValue.height || ""
+      // Log field structure for debugging
+      console.log(`Rendering field "${fieldName}":`, JSON.stringify(fieldValue, null, 2))
+
+      // Handle image fields - check both direct and nested value
+      const imageValue = fieldValue.value || fieldValue
+      if (imageValue?.src) {
+        const src = imageValue.src || ""
+        const alt = imageValue.alt || ""
+        const width = imageValue.width || ""
+        const height = imageValue.height || ""
         return `${indent}<img src="${src}" alt="${alt}" width="${width}" height="${height}" class="sc-image" data-field="${fieldName}" loading="lazy" />\n`
       }
 
-      // Handle link fields
-      if (fieldValue.value?.href || fieldValue.href) {
-        const href = fieldValue.value?.href || fieldValue.href
-        const text = fieldValue.value?.text || fieldValue.text || href
-        const target = fieldValue.value?.target || fieldValue.target || ""
-        return `${indent}<a href="${href}" target="${target}" class="sc-link" data-field="${fieldName}">${text}</a>\n`
+      // Handle link fields - check both direct and nested value
+      const linkValue = fieldValue.value || fieldValue
+      if (linkValue?.href) {
+        const href = linkValue.href || ""
+        const text = linkValue.text || linkValue.title || href
+        const target = linkValue.target || ""
+        const className = linkValue.class || ""
+        return `${indent}<a href="${href}" target="${target}" class="sc-link ${className}" data-field="${fieldName}">${text}</a>\n`
       }
 
-      // Handle rich text or text fields
-      if (typeof fieldValue === "string") {
+      // Handle rich text or text fields with editable wrapper
+      if (fieldValue.editable && typeof fieldValue.editable === "string") {
+        // In editing mode, Sitecore wraps content with editable wrapper
+        return `${indent}<div class="sc-field" data-field="${fieldName}">${fieldValue.editable}</div>\n`
+      }
+
+      // Handle rich text or text fields - string value directly
+      if (typeof fieldValue === "string" && fieldValue.trim() !== "") {
         return `${indent}<div class="sc-field" data-field="${fieldName}">${fieldValue}</div>\n`
       }
 
-      if (fieldValue.value && typeof fieldValue.value === "string") {
-        return `${indent}<div class="sc-field" data-field="${fieldName}">${fieldValue.value}</div>\n`
+      // Handle nested value property (common in Sitecore)
+      if (fieldValue.value !== undefined && fieldValue.value !== null) {
+        const innerValue = fieldValue.value
+        
+        // If value is a non-empty string
+        if (typeof innerValue === "string" && innerValue.trim() !== "") {
+          return `${indent}<div class="sc-field" data-field="${fieldName}">${innerValue}</div>\n`
+        }
+        
+        // If value is a number or boolean
+        if (typeof innerValue === "number" || typeof innerValue === "boolean") {
+          return `${indent}<div class="sc-field" data-field="${fieldName}">${innerValue}</div>\n`
+        }
+        
+        // If value is an object (could be image, link, or other complex type)
+        if (typeof innerValue === "object" && innerValue !== null) {
+          // Try to render as structured data
+          const jsonStr = JSON.stringify(innerValue, null, 2).replace(/-->/g, "-- >")
+          return `${indent}<!-- Field: ${fieldName} = ${jsonStr} -->\n`
+        }
+      }
+
+      // Handle array values (multi-list fields, etc.)
+      if (Array.isArray(fieldValue)) {
+        if (fieldValue.length > 0) {
+          const items = fieldValue.map(item => {
+            if (typeof item === "string") return `<li>${item}</li>`
+            if (item.value) return `<li>${item.value}</li>`
+            return `<li>${JSON.stringify(item)}</li>`
+          }).join("\n" + indent + "  ")
+          return `${indent}<ul class="sc-field-list" data-field="${fieldName}">\n${indent}  ${items}\n${indent}</ul>\n`
+        }
+      }
+
+      // Handle number or boolean fields
+      if (typeof fieldValue === "number" || typeof fieldValue === "boolean") {
+        return `${indent}<div class="sc-field" data-field="${fieldName}">${fieldValue}</div>\n`
       }
 
       // Handle complex field values (render as JSON comment for analysis)
@@ -222,12 +269,14 @@ export const PageHtmlViewer = () => {
 
     // Build components HTML from route placeholders
     if (route?.placeholders) {
+      console.log("Route placeholders:", JSON.stringify(route.placeholders, null, 2))
       componentsHtml = renderComponents(route.placeholders)
     }
 
     // Build page fields HTML
     let pageFieldsHtml = ""
     if (route?.fields) {
+      console.log("Route fields:", JSON.stringify(route.fields, null, 2))
       for (const [fieldName, fieldValue] of Object.entries(route.fields)) {
         pageFieldsHtml += renderField(fieldName, fieldValue, 1)
       }
@@ -300,28 +349,68 @@ ${componentsHtml}
 
       if (layoutResponse.data) {
         setLayoutData(layoutResponse.data)
+      }
 
-        // Build HTML from layout data
-        const generatedHtml = buildHtmlFromLayout(
-          layoutResponse.data,
-          pageContext
-        )
-        setHtml(generatedHtml)
-        console.log("HTML generated from layout, length:", generatedHtml.length)
+      // Fetch the actual rendered HTML from the page
+      const pageRoute = pageContext.pageInfo?.route || "/"
+      const renderingEngineUrl = pageContext.siteInfo?.renderingEngineApplicationUrl
+      
+      if (renderingEngineUrl) {
+        console.log("Fetching HTML from rendering engine:", renderingEngineUrl + pageRoute)
+        
+        try {
+          const htmlResponse = await fetch("/api/fetch-html", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+              url: renderingEngineUrl + pageRoute 
+            }),
+          })
+
+          const htmlData = await htmlResponse.json()
+
+          if (htmlResponse.ok && htmlData.html) {
+            setHtml(htmlData.html)
+            console.log("HTML fetched from rendering engine, length:", htmlData.html.length)
+          } else {
+            throw new Error(htmlData.error || "Failed to fetch HTML")
+          }
+        } catch (fetchError: any) {
+          console.warn("Could not fetch HTML from rendering engine:", fetchError)
+          
+          // Fallback: Build HTML from layout data
+          if (layoutResponse.data) {
+            const generatedHtml = buildHtmlFromLayout(
+              layoutResponse.data,
+              pageContext
+            )
+            setHtml(generatedHtml)
+            console.log("HTML generated from layout data (fallback), length:", generatedHtml.length)
+          } else {
+            throw fetchError
+          }
+        }
       } else {
-        // If no layout data, generate a basic HTML structure from page context
-        console.log("No layout data, generating from page context...")
-        const basicHtml = buildHtmlFromLayout(
-          { sitecore: { route: {} } },
-          pageContext
-        )
-        setHtml(basicHtml)
+        // No rendering engine URL, build from layout data
+        if (layoutResponse.data) {
+          const generatedHtml = buildHtmlFromLayout(
+            layoutResponse.data,
+            pageContext
+          )
+          setHtml(generatedHtml)
+          console.log("HTML generated from layout data, length:", generatedHtml.length)
+        } else {
+          throw new Error("No layout data or rendering engine URL available")
+        }
       }
     } catch (err: any) {
       console.error("Error fetching layout data:", err)
+      setError(err.message || "Error fetching page data")
 
-      // Fallback: generate HTML from page context only
-      console.log("Fallback: generating HTML from page context only...")
+      // Final fallback: generate HTML from page context only
+      console.log("Final fallback: generating HTML from page context only...")
       const fallbackHtml = buildHtmlFromLayout(
         { sitecore: { route: {} } },
         pageContext
