@@ -1,0 +1,33 @@
+Query the page context
+Version: 0.4
+Required extension points: any SitecoreAI Page builder extension point
+
+Required SDK packages: client
+
+Required API access: none
+
+Before you begin
+Complete the SDK quick start.
+
+In the quick start, you make your first query by running client.query("application.context").
+
+If your app uses any of the SitecoreAI Page builder extension points, you can query the page context to retrieve details about the current page and site.
+
+To query the page context:
+
+In the SDK initialization code where you run the useMarketplaceClient hook, in the Effect Hook, below the "application.context" query, create a new query, then save your changes:
+
+Copy
+// Make a query to retrieve the page context
+client.query("pages.context")
+  .then((res) => {
+    console.log("Success retrieving pages.context:", res.data);
+  })
+  .catch((error) => {
+    console.error("Error retrieving pages.context:", error);
+  });
+In the SitecoreAI Page builder, open your web browser's console, refresh the page, then open your Marketplace app.
+
+In the console, find the log for Success retrieving pages.context and inspect the object. The object contains all the details about the current page and site.
+
+This query also lets you subscribe to page events.
