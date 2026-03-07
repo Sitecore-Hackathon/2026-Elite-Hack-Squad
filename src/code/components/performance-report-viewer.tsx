@@ -69,7 +69,7 @@ function ActionCard({ action, index }: { action: TopAction; index: number }) {
               {action.codeSnippet && (
                 <div className="mt-2 bg-muted p-2 rounded">
                   <div className="text-xs font-medium mb-1 text-muted-foreground">Code to improve:</div>
-                  <pre className="text-xs overflow-auto">
+                  <pre className="text-xs overflow-x-auto max-w-full whitespace-pre-wrap break-all">
                     <code>{action.codeSnippet}</code>
                   </pre>
                 </div>
