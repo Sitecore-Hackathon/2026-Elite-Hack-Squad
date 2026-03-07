@@ -287,6 +287,10 @@ Potential improvements for future versions:
 - Custom performance budgets
 - Integration with CI/CD pipelines
 
-### Contributing
+### Contributors
 
-This is a Hackathon 2026 submission. Feedback and suggestions are welcome through the repository issues.
+- Gabriel Baldeon
+- Freddy Rueda
+- Ramiro Batallas
+
+Feedback and suggestions are welcome through the repository issues.
