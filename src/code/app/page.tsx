@@ -2,6 +2,7 @@
 
 import { ApplicationContext } from "@/components/examples/built-in-auth/application-context";
 import { PageContext } from "@/components/examples/built-in-auth/page-context";
+import { PageHtmlViewer } from "@/components/examples/built-in-auth/page-html-viewer";
 import { ListLanguagesFromClientSdk } from "@/components/examples/built-in-auth/with-xmc/list-languages";
 import { Separator } from "@/components/ui/separator";
 
@@ -10,12 +11,16 @@ function Examples() {
     <div className="container mx-auto p-6 space-y-8 max-w-3xl">
       <div className="space-y-4">
         <h1 className="text-3xl font-semibold tracking-tight">
-          Marketplace SDK Demo
+          Performance Analyzer
         </h1>
         <p className="text-muted-foreground">
-          xxxx
+          Analyze your Sitecore page performance by inspecting the rendered HTML.
         </p>
       </div>
+
+      <PageHtmlViewer />
+
+      <Separator />
 
       <ApplicationContext />
 
